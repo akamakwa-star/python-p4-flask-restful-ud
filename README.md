@@ -1,311 +1,207 @@
-# Update and Delete with Flask-RESTful
+ Late Show API
 
-## Learning Goals
+ Project Description
 
-- Build RESTful APIs that are easy to navigate and use in applications.
+The Late Show API is a Flask-based RESTful API that models episodes of a late-night show, the guests who appear on those episodes, and their appearances. The API allows users to retrieve episodes and guests, as well as create new appearances with validations.
 
----
+This project was built as part of Phase 4 Code Challenge at Moringa School.
 
-## Key Vocab
+🛠️ Technologies Used
 
-- **Representational State Transfer (REST)**: a convention for developing
-  applications that use HTTP in a consistent, human-readable, machine-readable
-  way.
-- **Application Programming Interface (API)**: a software application that
-  allows two or more software applications to communicate with one another. Can
-  be standalone or incorporated into a larger product.
-- **HTTP Request Method**: assets of HTTP requests that tell the server which
-  actions the client is attempting to perform on the located resource.
-- **`GET`**: the most common HTTP request method. Signifies that the client is
-  attempting to view the located resource.
-- **`POST`**: the second most common HTTP request method. Signifies that the
-  client is attempting to submit a form to create a new resource.
-- **`PATCH`**: an HTTP request method that signifies that the client is
-  attempting to update a resource with new information.
-- **`PUT`**: an HTTP request method that signifies that the client is attempting
-  to update a resource with new information contained in a complete record.
-- **`DELETE`**: an HTTP request method that signifies that the client is
-  attempting to delete a resource.
+Python
 
----
+Flask
 
-## Introduction
+Flask SQLAlchemy
 
-Now that we've explored how to create and retrieve records with `POST` and
-`GET`, let's look into updating records individually and in batches with
-`PATCH`.
+Flask Migrate
 
-Run `pipenv install && pipenv shell` to enter your virtual environment.
+SQLite / PostgreSQL
 
-```console
-$ pipenv install && pipenv shell
-```
+SQLAlchemy Serializer
 
-Change into the `server` directory to create the database and populate it with
-seed data:
+Postman (for API testing)
 
-```console
-$ cd server
-$ flask db upgrade
-$ python seed.py
-```
+Database Models
+Episode
 
----
+id (Integer, Primary Key)
 
-## Adding a `PATCH` Route
+date (String)
 
-We're just about pros with Flask-RESTful now: if you're feeling confident, go
-ahead and try adding a `patch()` method to `NewsletterByID`.
+number (Integer)
 
-> \*\*TIP: Remember to use `setattr()` to cut down the number of lines of code!
+Relationships:
 
-Solution below...
+Has many guests through appearances
 
-...
+Cascade delete enabled
 
-...
+Guest
 
-...
+id (Integer, Primary Key)
 
-Just as with the `get()` route in this resource, we're going to pass in the `id`
-from the URL and use it to retrieve the record we're updating. Unlike the
-`get()` route, we want to leave it as a `Newsletter` object instead of
-converting it to a dictionary, since we want to change the attributes on the
-record.
+name (String)
 
-```py
-# server/app.py
+occupation (String)
 
-class NewsletterByID(Resource):
+Relationships:
 
-    # get()
+Has many episodes through appearances
 
-    def patch(self, id):
+Cascade delete enabled
 
-        record = Newsletter.query.filter(Newsletter.id == id).first()
-        for attr in request.form:
-            setattr(record, attr, request.form[attr])
+Appearance
 
-        db.session.add(record)
-        db.session.commit()
+id (Integer, Primary Key)
 
-        response_dict = record.to_dict()
+rating (Integer)
 
-        response = make_response(
-            response_dict,
-            200
-        )
+episode_id (Foreign Key)
 
-        return response
-```
+guest_id (Foreign Key)
 
-Looping through the form data gives us its keys, the attribute names to be
-changed. From there, we can set each attribute on the `Newsletter` object to its
-new value with `setattr()`. From here, we update the database with the new
-record, create a response with the record, and send it back to the client.
+Validations:
 
-Try it out for yourself: open Postman and navigate to
-[http://127.0.0.1:5000/newsletters/20](http://127.0.0.1:5000/newsletters/20).
-Change the request method to `PATCH`, edit the `Body > form-data` with a new
-body, then hit submit. You should see a response similar to the following:
+rating must be between 1 and 5 (inclusive)
 
-```json
+🔗 Relationships
+
+An Episode has many Guests through Appearances
+
+A Guest has many Episodes through Appearances
+
+An Appearance belongs to both a Guest and an Episode
+
+Setup Instructions
+1. Clone the repository
+git clone git@github.com:your-username/lateshow-firstname-lastname.git
+cd lateshow-firstname-lastname
+
+2. Create and activate a virtual environment
+pipenv install
+pipenv shell
+
+3. Install dependencies
+pip install -r requirements.txt
+
+4. Run database migrations
+flask db init
+flask db migrate
+flask db upgrade
+
+5. Seed the database
+python seed.py
+
+6. Start the server
+flask run
+
+ API Endpoints
+GET /episodes
+
+Returns a list of all episodes.
+
+[
+  {
+    "id": 1,
+    "date": "1/11/99",
+    "number": 1
+  }
+]
+
+GET /episodes/:id
+
+Returns a single episode and its appearances.
+
+Success Response
+
 {
-  "body": "blah blah blah blah blah blah blah",
-  "edited_at": "2022-09-22 16:50:06",
-  "id": 20,
-  "published_at": "2022-09-22 16:48:12",
-  "title": "Mr. Title"
+  "id": 1,
+  "date": "1/11/99",
+  "number": 1,
+  "appearances": [
+    {
+      "id": 1,
+      "rating": 4,
+      "episode_id": 1,
+      "guest_id": 1,
+      "guest": {
+        "id": 1,
+        "name": "Michael J. Fox",
+        "occupation": "actor"
+      }
+    }
+  ]
 }
-```
 
-Looks like someone didn't enjoy the newsletter from September 22!
 
----
+Error Response
 
-## Adding a `DELETE` Route
-
-Now that we've identified an unpopular newsletter, it might be a good idea to
-head into the API and delete it. To accomplish that, we'll have to add a
-`delete()` route to `NewsletterByID`:
-
-```py
-# server/app.py
-
-class NewsletterByID(Resource):
-
-    # get(), patch()
-
-    def delete(self, id):
-
-        record = Newsletter.query.filter(Newsletter.id == id).first()
-
-        db.session.delete(record)
-        db.session.commit()
-
-        response_dict = {"message": "record successfully deleted"}
-
-        response = make_response(
-            response_dict,
-            200
-        )
-
-        return response
-```
-
-Here, we retrieve the record using the `id` passed to the route through the URL,
-delete it, and return a message that the record has been successfully deleted:
-
-```json
 {
-  "message": "record successfully deleted"
+  "error": "Episode not found"
 }
-```
 
----
+GET /guests
 
-## Conclusion
+Returns all guests.
 
-While there are a few nuances that separate Flask-RESTful from vanilla Flask in
-building APIs, we can see that they exist to simplify the process of making a
-RESTful API: rather than specifying the accepted HTTP request methods and
-handling them with `if/elif/else` blocks, methods are used to neatly organize
-the routes for `GET`, `POST`, `PATCH`, `DELETE`, and more at each URL.
+[
+  {
+    "id": 1,
+    "name": "Michael J. Fox",
+    "occupation": "actor"
+  }
+]
 
----
+POST /appearances
 
-## Solution Code
+Creates a new appearance.
 
-```py
-# server/app.py
+Request Body
 
-#!/usr/bin/env python3
-
-from flask import Flask, request, make_response
-from flask_migrate import Migrate
-from flask_restful import Api, Resource
-
-from models import db, Newsletter
-
-app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///newsletters.db'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.json.compact = False
-
-migrate = Migrate(app, db)
-db.init_app(app)
-
-api = Api(app)
-
-class Index(Resource):
-
-    def get(self):
-
-        response_dict = {
-            "index": "Welcome to the Newsletter RESTful API",
-        }
-
-        response = make_response(
-            response_dict,
-            200,
-        )
-
-        return response
-
-api.add_resource(Index, '/')
-
-class Newsletters(Resource):
-
-    def get(self):
-
-        response_dict_list = [n.to_dict() for n in Newsletter.query.all()]
-
-        response = make_response(
-            response_dict_list,
-            200,
-        )
-
-        return response
-
-    def post(self):
-
-        new_record = Newsletter(
-            title=request.form['title'],
-            body=request.form['body'],
-        )
-
-        db.session.add(new_record)
-        db.session.commit()
-
-        response_dict = new_record.to_dict()
-
-        response = make_response(
-            response_dict,
-            201,
-        )
-
-        return response
-
-api.add_resource(Newsletters, '/newsletters')
-
-class NewsletterByID(Resource):
-
-    def get(self, id):
-
-        response_dict = Newsletter.query.filter_by(id=id).first().to_dict()
-
-        response = make_response(
-            response_dict,
-            200,
-        )
-
-        return response
-
-    def patch(self, id):
-
-        record = Newsletter.query.filter_by(id=id).first()
-        for attr in request.form:
-            setattr(record, attr, request.form[attr])
-
-        db.session.add(record)
-        db.session.commit()
-
-        response_dict = record.to_dict()
-
-        response = make_response(
-            response_dict,
-            200
-        )
-
-        return response
-
-    def delete(self, id):
-
-        record = Newsletter.query.filter_by(id=id).first()
-
-        db.session.delete(record)
-        db.session.commit()
-
-        response_dict = {"message": "record successfully deleted"}
-
-        response = make_response(
-            response_dict,
-            200
-        )
-
-        return response
-
-api.add_resource(NewsletterByID, '/newsletters/<int:id>')
+{
+  "rating": 5,
+  "episode_id": 2,
+  "guest_id": 3
+}
 
 
-if __name__ == '__main__':
-    app.run(port=5555, debug=True)
-```
+Success Response
 
-## Resources
+{
+  "id": 162,
+  "rating": 5,
+  "episode_id": 2,
+  "guest_id": 3,
+  "episode": {
+    "id": 2,
+    "date": "1/12/99",
+    "number": 2
+  },
+  "guest": {
+    "id": 3,
+    "name": "Tracey Ullman",
+    "occupation": "television actress"
+  }
+}
 
-- [What RESTful Actually Means](https://codewords.recurse.com/issues/five/what-restful-actually-means)
-- [Flask-RESTful][frest]
-- [HTTP request methods - Mozilla](https://developer.mozilla.org/en-US/docs/Web/HTTP/Methods)
 
-[frest]: https://flask-restful.readthedocs.io/en/latest/
+Error Response
+
+{
+  "errors": ["validation errors"]
+}
+
+ Validations
+
+Appearance rating must be between 1 and 5
+
+Invalid submissions return error messages with appropriate HTTP status codes
+
+ Testing
+
+Import the provided Postman collection
+
+Test all routes to ensure expected responses
+
+All endpoints return JSON responses
