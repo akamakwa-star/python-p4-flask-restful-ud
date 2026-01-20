@@ -3,49 +3,59 @@ from sqlalchemy_serializer import SerializerMixin
 
 db = SQLAlchemy()
 
-class Episode(db.Model, SerializerMixin):
-    __tablename__ = 'episodes'
+class Camper(db.Model, SerializerMixin):
+    __tablename__ = 'campers'
 
     id = db.Column(db.Integer, primary_key=True)
-    date = db.Column(db.String)
-    number = db.Column(db.Integer)
+    name = db.Column(db.String, nullable=False)
+    age = db.Column(db.Integer)
 
-    appearances = db.relationship('Appearance', backref='episode', cascade='all, delete-orphan')
+    signups = db.relationship('Signup', backref='camper', cascade='all, delete-orphan')
 
-    serialize_rules = ('-appearances.episode',)
+    serialize_rules = ('-signups.camper',)
+
+    def __init__(self, name, age):
+        if not name:
+            raise ValueError("Name cannot be empty")
+        if not (8 <= age <= 18):
+            raise ValueError("Age must be between 8 and 18")
+        self.name = name
+        self.age = age
 
     def __repr__(self):
-        return f'<Episode {self.number}, date {self.date}.>'
+        return f'<Camper {self.name}, age {self.age}.>'
 
-class Guest(db.Model, SerializerMixin):
-    __tablename__ = 'guests'
+class Activity(db.Model, SerializerMixin):
+    __tablename__ = 'activities'
 
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String)
-    occupation = db.Column(db.String)
+    difficulty = db.Column(db.Integer)
 
-    appearances = db.relationship('Appearance', backref='guest', cascade='all, delete-orphan')
+    signups = db.relationship('Signup', backref='activity', cascade='all, delete-orphan')
 
-    serialize_rules = ('-appearances.guest',)
+    serialize_rules = ('-signups.activity',)
 
     def __repr__(self):
-        return f'<Guest {self.name}, occupation {self.occupation}.>'
+        return f'<Activity {self.name}, difficulty {self.difficulty}.>'
 
-class Appearance(db.Model, SerializerMixin):
-    __tablename__ = 'appearances'
+class Signup(db.Model, SerializerMixin):
+    __tablename__ = 'signups'
 
     id = db.Column(db.Integer, primary_key=True)
-    rating = db.Column(db.Integer)
-    episode_id = db.Column(db.Integer, db.ForeignKey('episodes.id'))
-    guest_id = db.Column(db.Integer, db.ForeignKey('guests.id'))
+    time = db.Column(db.Integer)
+    camper_id = db.Column(db.Integer, db.ForeignKey('campers.id'))
+    activity_id = db.Column(db.Integer, db.ForeignKey('activities.id'))
 
-    serialize_rules = ('-episode.appearances', '-guest.appearances')
+    serialize_rules = ('-camper.signups', '-activity.signups')
+
+    def __init__(self, time, camper_id, activity_id):
+        if not (0 <= time <= 23):
+            raise ValueError("Time must be between 0 and 23")
+        self.time = time
+        self.camper_id = camper_id
+        self.activity_id = activity_id
 
     def __repr__(self):
-        return f'<Appearance rating {self.rating}, episode {self.episode_id}, guest {self.guest_id}.>'
-
-    @db.validates('rating')
-    def validate_rating(self, key, rating):
-        if not (1 <= rating <= 5):
-            raise ValueError("Rating must be between 1 and 5")
+        return f'<Signup time {self.time}, camper {self.camper_id}, activity {self.activity_id}.>'
         return rating
