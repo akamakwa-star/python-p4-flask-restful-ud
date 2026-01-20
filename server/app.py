@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 
-from flask import Flask, request, make_response
+from flask import Flask, request, make_response, jsonify
 from flask_migrate import Migrate
 from flask_restful import Api, Resource
+from sqlalchemy.exc import IntegrityError
 
-from models import db, Newsletter
+from models import db, Episode, Guest, Appearance
 
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///newsletters.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///app.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.json.compact = False
 
@@ -16,72 +17,49 @@ db.init_app(app)
 
 api = Api(app)
 
-class Home(Resource):
-
+class Episodes(Resource):
     def get(self):
-        
-        response_dict = {
-            "message": "Welcome to the Newsletter RESTful API",
-        }
-        
-        response = make_response(
-            response_dict,
-            200,
-        )
+        episodes = [episode.to_dict() for episode in Episode.query.all()]
+        return make_response(episodes, 200)
 
-        return response
-
-api.add_resource(Home, '/')
-
-class Newsletters(Resource):
-
-    def get(self):
-        
-        response_dict_list = [n.to_dict() for n in Newsletter.query.all()]
-
-        response = make_response(
-            response_dict_list,
-            200,
-        )
-
-        return response
-
-    def post(self):
-        
-        new_record = Newsletter(
-            title=request.form['title'],
-            body=request.form['body'],
-        )
-
-        db.session.add(new_record)
-        db.session.commit()
-
-        response_dict = new_record.to_dict()
-
-        response = make_response(
-            response_dict,
-            201,
-        )
-
-        return response
-
-api.add_resource(Newsletters, '/newsletters')
-
-class NewsletterByID(Resource):
-
+class EpisodeById(Resource):
     def get(self, id):
+        episode = Episode.query.filter_by(id=id).first()
+        if not episode:
+            return make_response({"error": "Episode not found"}, 404)
+        episode_dict = episode.to_dict()
+        episode_dict['appearances'] = [appearance.to_dict() for appearance in episode.appearances]
+        return make_response(episode_dict, 200)
 
-        response_dict = Newsletter.query.filter_by(id=id).first().to_dict()
+class Guests(Resource):
+    def get(self):
+        guests = [guest.to_dict() for guest in Guest.query.all()]
+        return make_response(guests, 200)
 
-        response = make_response(
-            response_dict,
-            200,
-        )
+class Appearances(Resource):
+    def post(self):
+        data = request.get_json()
+        try:
+            appearance = Appearance(
+                rating=data['rating'],
+                episode_id=data['episode_id'],
+                guest_id=data['guest_id']
+            )
+            db.session.add(appearance)
+            db.session.commit()
+            appearance_dict = appearance.to_dict()
+            appearance_dict['episode'] = appearance.episode.to_dict()
+            appearance_dict['guest'] = appearance.guest.to_dict()
+            return make_response(appearance_dict, 201)
+        except ValueError as e:
+            return make_response({"errors": [str(e)]}, 400)
+        except IntegrityError:
+            return make_response({"errors": ["Invalid episode_id or guest_id"]}, 400)
 
-        return response
-
-api.add_resource(NewsletterByID, '/newsletters/<int:id>')
-
+api.add_resource(Episodes, '/episodes')
+api.add_resource(EpisodeById, '/episodes/<int:id>')
+api.add_resource(Guests, '/guests')
+api.add_resource(Appearances, '/appearances')
 
 if __name__ == '__main__':
     app.run(port=5555, debug=True)
